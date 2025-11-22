@@ -8,6 +8,10 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Operations from "./pages/Operations";
+import Receipts from "./pages/operations/Receipts";
+import Deliveries from "./pages/operations/Deliveries";
+import Transfers from "./pages/operations/Transfers";
+import Adjustments from "./pages/operations/Adjustments";
 import MoveHistory from "./pages/MoveHistory";
 import Warehouses from "./pages/Warehouses";
 import Settings from "./pages/Settings";
@@ -28,6 +32,10 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/operations" element={<Operations />} />
+            <Route path="/operations/receipts" element={<Receipts />} />
+            <Route path="/operations/deliveries" element={<Deliveries />} />
+            <Route path="/operations/transfers" element={<Transfers />} />
+            <Route path="/operations/adjustments" element={<Adjustments />} />
             <Route path="/move-history" element={<MoveHistory />} />
             <Route path="/warehouses" element={<Warehouses />} />
             <Route path="/settings" element={<Settings />} />
