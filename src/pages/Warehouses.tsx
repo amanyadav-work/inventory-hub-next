@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Plus, Warehouse } from "lucide-react";
+import { Plus, Warehouse, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const Warehouses = () => {
@@ -18,6 +18,7 @@ const Warehouses = () => {
   const navigate = useNavigate();
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingWarehouse, setEditingWarehouse] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -53,18 +54,62 @@ const Warehouses = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { error } = await supabase.from("warehouses").insert([formData]);
+    if (editingWarehouse) {
+      const { error } = await supabase
+        .from("warehouses")
+        .update(formData)
+        .eq("id", editingWarehouse.id);
+
+      if (error) {
+        toast.error("Error updating warehouse: " + error.message);
+      } else {
+        toast.success("Warehouse updated successfully!");
+        setIsDialogOpen(false);
+        setEditingWarehouse(null);
+        setFormData({
+          name: "",
+          code: "",
+          address: "",
+        });
+        fetchWarehouses();
+      }
+    } else {
+      const { error } = await supabase.from("warehouses").insert([formData]);
+
+      if (error) {
+        toast.error("Error creating warehouse: " + error.message);
+      } else {
+        toast.success("Warehouse created successfully!");
+        setIsDialogOpen(false);
+        setFormData({
+          name: "",
+          code: "",
+          address: "",
+        });
+        fetchWarehouses();
+      }
+    }
+  };
+
+  const handleEdit = (warehouse: any) => {
+    setEditingWarehouse(warehouse);
+    setFormData({
+      name: warehouse.name,
+      code: warehouse.code,
+      address: warehouse.address || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this warehouse?")) return;
+
+    const { error } = await supabase.from("warehouses").update({ is_active: false }).eq("id", id);
 
     if (error) {
-      toast.error("Error creating warehouse: " + error.message);
+      toast.error("Error deleting warehouse");
     } else {
-      toast.success("Warehouse created successfully!");
-      setIsDialogOpen(false);
-      setFormData({
-        name: "",
-        code: "",
-        address: "",
-      });
+      toast.success("Warehouse deleted successfully!");
       fetchWarehouses();
     }
   };
@@ -87,7 +132,17 @@ const Warehouses = () => {
             <h1 className="text-3xl font-bold text-foreground">Warehouses</h1>
             <p className="text-muted-foreground mt-1">Manage your storage locations</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingWarehouse(null);
+              setFormData({
+                name: "",
+                code: "",
+                address: "",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -96,9 +151,9 @@ const Warehouses = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Warehouse</DialogTitle>
+                <DialogTitle>{editingWarehouse ? "Edit Warehouse" : "Create New Warehouse"}</DialogTitle>
                 <DialogDescription>
-                  Add a new warehouse or storage location
+                  {editingWarehouse ? "Update warehouse information" : "Add a new warehouse or storage location"}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -131,7 +186,9 @@ const Warehouses = () => {
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   />
                 </div>
-                <Button type="submit" className="w-full">Create Warehouse</Button>
+                <Button type="submit" className="w-full">
+                  {editingWarehouse ? "Update Warehouse" : "Create Warehouse"}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -152,12 +209,13 @@ const Warehouses = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {warehouses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No warehouses found
                     </TableCell>
                   </TableRow>
@@ -173,6 +231,16 @@ const Warehouses = () => {
                         ) : (
                           <Badge variant="secondary">Inactive</Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(warehouse)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(warehouse.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

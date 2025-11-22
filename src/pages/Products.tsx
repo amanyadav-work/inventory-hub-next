@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
 
 const Products = () => {
   const { user, loading } = useAuth();
@@ -20,6 +20,7 @@ const Products = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
@@ -75,25 +76,76 @@ const Products = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { error } = await supabase.from("products").insert([
-      {
-        ...formData,
-        reorder_level: parseInt(formData.reorder_level),
-      },
-    ]);
+    if (editingProduct) {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          ...formData,
+          reorder_level: parseInt(formData.reorder_level),
+        })
+        .eq("id", editingProduct.id);
+
+      if (error) {
+        toast.error("Error updating product: " + error.message);
+      } else {
+        toast.success("Product updated successfully!");
+        setIsDialogOpen(false);
+        setEditingProduct(null);
+        setFormData({
+          name: "",
+          sku: "",
+          category_id: "",
+          unit_of_measure: "",
+          reorder_level: "10",
+        });
+        fetchProducts();
+      }
+    } else {
+      const { error } = await supabase.from("products").insert([
+        {
+          ...formData,
+          reorder_level: parseInt(formData.reorder_level),
+        },
+      ]);
+
+      if (error) {
+        toast.error("Error creating product: " + error.message);
+      } else {
+        toast.success("Product created successfully!");
+        setIsDialogOpen(false);
+        setFormData({
+          name: "",
+          sku: "",
+          category_id: "",
+          unit_of_measure: "",
+          reorder_level: "10",
+        });
+        fetchProducts();
+      }
+    }
+  };
+
+  const handleEdit = (product: any) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      sku: product.sku,
+      category_id: product.category_id || "",
+      unit_of_measure: product.unit_of_measure,
+      reorder_level: product.reorder_level.toString(),
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+
+    const { error } = await supabase.from("products").update({ is_active: false }).eq("id", id);
 
     if (error) {
-      toast.error("Error creating product: " + error.message);
+      toast.error("Error deleting product");
     } else {
-      toast.success("Product created successfully!");
-      setIsDialogOpen(false);
-      setFormData({
-        name: "",
-        sku: "",
-        category_id: "",
-        unit_of_measure: "",
-        reorder_level: "10",
-      });
+      toast.success("Product deleted successfully!");
       fetchProducts();
     }
   };
@@ -121,7 +173,19 @@ const Products = () => {
             <h1 className="text-3xl font-bold text-foreground">Products</h1>
             <p className="text-muted-foreground mt-1">Manage your inventory products</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingProduct(null);
+              setFormData({
+                name: "",
+                sku: "",
+                category_id: "",
+                unit_of_measure: "",
+                reorder_level: "10",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -130,9 +194,9 @@ const Products = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Product</DialogTitle>
+                <DialogTitle>{editingProduct ? "Edit Product" : "Create New Product"}</DialogTitle>
                 <DialogDescription>
-                  Add a new product to your inventory system
+                  {editingProduct ? "Update product information" : "Add a new product to your inventory system"}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -192,7 +256,9 @@ const Products = () => {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">Create Product</Button>
+                <Button type="submit" className="w-full">
+                  {editingProduct ? "Update Product" : "Create Product"}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -219,12 +285,13 @@ const Products = () => {
                   <TableHead>Category</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>Reorder Level</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No products found
                     </TableCell>
                   </TableRow>
@@ -236,6 +303,16 @@ const Products = () => {
                       <TableCell>{product.category?.name || "-"}</TableCell>
                       <TableCell>{product.unit_of_measure}</TableCell>
                       <TableCell>{product.reorder_level}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
